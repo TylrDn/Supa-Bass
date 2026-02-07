@@ -33,78 +33,139 @@ A hackathon-ready MVP that allows users to upload PDFs, parse them with Docling 
 
 ## Setup Instructions
 
-### 1. Prerequisites
+### Prerequisites
 
 - Node.js 18+ and npm
-- Supabase account
+- Supabase account (or local Supabase via Docker)
 - OpenAI API key
-- Vercel account (for Docling API)
+- Python 3.8+ (for Docling API)
+- Vercel account (for Docling API deployment)
 
-### 2. Clone and Install
+### Quick Start (Automated)
 
 ```bash
+# Clone and install
 git clone <repository-url>
 cd Supa-Bass
 npm install
+
+# Run setup script
+./setup-local.sh
+
+# Follow the prompts to configure .env.local
 ```
 
-### 3. Supabase Setup
+### Manual Setup
+
+#### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+#### 2. Configure Environment Variables
+
+Copy the example environment file:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Edit `.env.local` and add your credentials:
+
+```env
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+
+# Server-side keys (used by /api/search route)
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+OPENAI_API_KEY=sk-your-openai-api-key
+```
+
+#### 3. Set Up Supabase
+
+**Option A: Cloud Supabase**
 
 1. Create a new Supabase project at [supabase.com](https://supabase.com)
-2. Run the database migrations:
-   - Go to SQL Editor in Supabase Dashboard
+2. Run the database migrations in SQL Editor:
    - Execute `supabase/migrations/20240101000000_initial_schema.sql`
    - Execute `supabase/migrations/20240101000001_storage_setup.sql`
-3. Create the storage bucket:
-   - Go to Storage in Supabase Dashboard
-   - Create a new private bucket named "pdfs"
-4. Get your credentials:
-   - Project URL: Settings → API → Project URL
-   - Anon Key: Settings → API → anon public
-   - Service Role Key: Settings → API → service_role (secret!)
+   - Execute `supabase/migrations/20240101000002_fix_search_chunks.sql`
+   - Execute `supabase/migrations/20240101000003_fix_storage_rls.sql`
+3. Get your credentials from Settings → API
+4. Storage bucket `pdfs` will be created automatically by the migration
 
-### 4. Deploy Docling API
+**Option B: Local Supabase (Recommended for Development)**
 
-1. Navigate to the `api` directory
-2. Deploy to Vercel:
-   ```bash
-   vercel --prod
-   ```
-3. Note the deployment URL (e.g., `https://your-project.vercel.app`)
+```bash
+# Install Supabase CLI
+npm install -g supabase
 
-### 5. Deploy Edge Function
+# Start local Supabase (requires Docker)
+supabase start
 
-1. Install Supabase CLI:
-   ```bash
-   npm install -g supabase
-   ```
-2. Link your project:
-   ```bash
-   supabase link --project-ref your-project-ref
-   ```
-3. Deploy the function:
-   ```bash
-   supabase functions deploy parse-pdf
-   ```
-4. Set environment secrets in Supabase Dashboard:
-   - `SUPABASE_URL`: Your Supabase URL
-   - `SUPABASE_SERVICE_ROLE_KEY`: Your service role key
-   - `OPENAI_API_KEY`: Your OpenAI API key
-   - `DOCLING_API_URL`: Your Vercel Docling API URL
+# This will output local credentials - update your .env.local
 
-### 6. Configure Frontend
+# Run migrations
+supabase db reset
 
-1. Copy the example environment file:
-   ```bash
-   cp .env.local.example .env.local
-   ```
-2. Edit `.env.local` and add your Supabase credentials:
-   ```
-   NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-   ```
+# Your local Supabase is now running at http://localhost:54321
+```
 
-### 7. Run Locally
+#### 4. Deploy Docling API (Production) or Run Locally
+
+**For Production (Vercel):**
+
+```bash
+cd api
+vercel --prod
+# Note the deployment URL (e.g., https://supa-bass-docling.vercel.app)
+```
+
+**For Local Development:**
+
+```bash
+# Install Python dependencies
+cd api
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# Run locally
+uvicorn parse:app --reload --port 8000
+
+# Docling API will be available at http://localhost:8000
+```
+
+#### 5. Deploy Edge Function
+
+**For Production:**
+
+```bash
+# Link your Supabase project
+supabase link --project-ref your-project-ref
+
+# Deploy the function
+supabase functions deploy parse-pdf
+
+# Set environment secrets in Supabase Dashboard → Edge Functions → parse-pdf:
+# - SUPABASE_URL: Your Supabase URL
+# - SUPABASE_SERVICE_ROLE_KEY: Your service role key
+# - OPENAI_API_KEY: Your OpenAI API key
+# - DOCLING_API_URL: Your Vercel Docling API URL
+```
+
+**For Local Development:**
+
+```bash
+# Ensure .env.local has all required variables
+supabase functions serve parse-pdf --env-file .env.local --no-verify-jwt
+
+# Edge Function will be available at http://localhost:54321/functions/v1/parse-pdf
+```
+
+#### 6. Run the Frontend
 
 ```bash
 npm run dev
@@ -112,15 +173,37 @@ npm run dev
 
 Visit [http://localhost:3000](http://localhost:3000)
 
-### 8. Deploy Frontend
-
-Deploy to Vercel:
+#### 7. Run Smoke Test
 
 ```bash
-vercel --prod
+./smoke-test.sh
 ```
 
-Set environment variables in Vercel Dashboard.
+This will verify that all components are working together correctly.
+
+### One-Command Local Development
+
+Once everything is configured, you can start all services with:
+
+```bash
+# Terminal 1: Supabase
+supabase start && supabase db reset
+
+# Terminal 2: Docling API (optional for local development)
+cd api && source .venv/bin/activate && uvicorn parse:app --reload --port 8000
+
+# Terminal 3: Edge Function
+supabase functions serve parse-pdf --env-file .env.local --no-verify-jwt
+
+# Terminal 4: Next.js
+npm run dev
+```
+
+Or simply use cloud services (Supabase Cloud + deployed Edge Function) and only run:
+
+```bash
+npm run dev
+```
 
 ## Usage
 
@@ -181,73 +264,330 @@ POST to `https://<your-api>.vercel.app/api/parse`
 
 ## 3-Minute Demo Script
 
-1. **Upload** – Open the app, select a PDF (e.g. `demo/finance-q4.pdf`), and click "Upload & Parse".
-2. **Wait** – Watch the status progress: upload → Docling parse → embedding → done (~20 s).
-3. **Search** – You're redirected to the search page. Type a natural-language question (e.g. "What was Q4 revenue?").
-4. **Explore** – Results appear as glassmorphism cards with similarity %, chunk type (text/table), and page number.
-5. **Repeat** – Try another query or upload a second PDF.
+Perfect for showing judges or stakeholders:
 
-### Test Commands
+1. **Upload (30s)**
+   - Open the app at your deployed URL or localhost:3000
+   - Dismiss the demo banner (or read it quickly)
+   - Click "Select PDF File" and choose a sample document (resume, financial report, research paper)
+   - Click "Upload & Parse PDF"
+
+2. **Wait & Watch (20-30s)**
+   - Status updates show:
+     - ✓ Uploading PDF...
+     - ✓ Processing PDF with Docling AI...
+     - ✓ Generating embeddings...
+     - ✓ PDF processed successfully!
+   - Automatic redirect to search page
+
+3. **Search & Explore (2min)**
+   - Try natural language queries:
+     - For resumes: "work experience", "skills", "education"
+     - For financial reports: "revenue", "Q4 performance", "expenses"
+     - For research papers: "methodology", "key findings", "conclusions"
+   - Results appear as glassmorphism cards showing:
+     - Similarity percentage (higher = more relevant)
+     - Matched text content
+     - Metadata (type: text/table, page number)
+   - Try multiple queries to demonstrate semantic understanding
+
+4. **Highlight Features**
+   - Point out the similarity scores (semantic search in action)
+   - Show how table data is extracted separately
+   - Mention the tech stack: Docling AI + OpenAI embeddings + Supabase pgvector
+
+**Pro Tips:**
+- Use a PDF with varied content (text + tables) to show extraction capabilities
+- Prepare 3-4 search queries in advance
+- Have the app already loaded to save time
+
+### Sample PDFs for Demo
+
+- Financial Reports: Great for testing "revenue", "profit", "quarterly" queries
+- Academic Resumes/CVs: Test "experience", "publications", "education"
+- Technical Documentation: Try "API", "configuration", "installation"
+
+### Test Commands (For Technical Judges)
 
 ```bash
-# ── curl: test Edge Function locally ──
+# Test the Edge Function locally
 curl -X POST http://localhost:54321/functions/v1/parse-pdf \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-  -d '{"bucket":"pdfs","path":"demo/finance-q4.pdf"}'
+  -H "Authorization: Bearer $NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+  -d '{"path":"test.pdf","bucket":"pdfs"}'
 
-# ── curl: test /api/search ──
+# Test search API
 curl -X POST http://localhost:3000/api/search \
   -H "Content-Type: application/json" \
   -d '{"query_text":"revenue","doc_id":"<DOC_UUID>","match_count":5}'
 
-# ── curl: test Docling API ──
+# Test Docling API
 curl -X POST http://localhost:8000/api/parse \
   -H "Content-Type: application/json" \
   -d '{"pdf_base64":"<BASE64_PDF>"}'
 ```
 
-### Local Development
+## Troubleshooting
 
-```bash
-# 1) Supabase local
-supabase start && supabase db reset
+### Common Issues
 
-# 2) FastAPI for Docling
-python -m venv .venv && source .venv/bin/activate
-pip install -r api/requirements.txt
-uvicorn api.parse:app --reload --port 8000 &
+**1. "Upload failed: Permission denied"**
+- Ensure you've run the latest migration: `20240101000003_fix_storage_rls.sql`
+- Check that the `pdfs` bucket exists in Supabase Storage
+- Verify storage policies allow public uploads
 
-# 3) Edge Functions
-supabase functions serve parse-pdf --no-verify-jwt --env-file .env.local &
+**2. "Processing failed: Edge function timeout"**
+- Large PDFs (>5MB) may take longer
+- Check Docling API is deployed and responding
+- Verify `DOCLING_API_URL` environment variable is set correctly
+- Check Edge Function logs in Supabase Dashboard
 
-# 4) Next.js dev
-npm run dev
+**3. "No results found" in search**
+- Verify chunks were created: Check `chunks` table in Supabase
+- Ensure OpenAI API key is valid and has credits
+- Check that embeddings were generated (embedding column not null)
+
+**4. Docling API errors**
+- Install required Python packages: `pip install -r api/requirements.txt`
+- Ensure `docling` and `docling-core` are installed
+- Check Python version (3.8+ required)
+
+**5. Local Supabase won't start**
+- Ensure Docker is running
+- Check port 54321 is not in use
+- Run `supabase stop` and try again
+
+**6. Environment variables not loaded**
+- Restart Next.js dev server after changing `.env.local`
+- For Edge Functions, pass `--env-file .env.local` flag
+- Check variable names match exactly (case-sensitive)
+
+### Debugging Tips
+
+**Enable verbose logging:**
+
+```typescript
+// In parse-pdf/index.ts, logs are already enabled with console.log
+// Check Supabase Dashboard → Edge Functions → Logs
 ```
 
-### Deploy to Production
+**Check database state:**
+
+```sql
+-- Count documents
+SELECT COUNT(*) FROM documents;
+
+-- Count chunks per document
+SELECT document_id, COUNT(*) as chunk_count 
+FROM chunks 
+GROUP BY document_id;
+
+-- Check embeddings are present
+SELECT COUNT(*) FROM chunks WHERE embedding IS NOT NULL;
+
+-- Test search function manually
+SELECT * FROM search_chunks(
+  (SELECT embedding FROM chunks LIMIT 1),  -- Use any embedding as test
+  'YOUR_DOCUMENT_ID'::uuid,
+  5
+);
+```
+
+**Clear test data:**
+
+```sql
+-- Remove all test documents and chunks
+DELETE FROM documents;  -- Chunks auto-delete due to CASCADE
+```
+
+## Deployment to Production
+
+### 1. Deploy Docling API to Vercel
 
 ```bash
-# Vercel (frontend + Docling API)
+cd api
 vercel --prod
-
-# Supabase DB push + Edge deploy
-supabase db push
-supabase functions deploy parse-pdf
-supabase secrets set OPENAI_API_KEY=sk-... DOCLING_API_URL=https://...vercel.app
 ```
+
+Note the deployment URL (e.g., `https://supa-bass-docling.vercel.app`)
+
+### 2. Set Up Cloud Supabase
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Run all migrations in SQL Editor (in order)
+3. Note your credentials from Settings → API
+
+### 3. Deploy Edge Function
+
+```bash
+# Link your Supabase project
+supabase link --project-ref your-project-ref
+
+# Deploy
+supabase functions deploy parse-pdf
+
+# Set secrets (do this in Supabase Dashboard → Edge Functions)
+# Or via CLI:
+supabase secrets set OPENAI_API_KEY=sk-your-key
+supabase secrets set DOCLING_API_URL=https://your-docling.vercel.app
+supabase secrets set SUPABASE_URL=https://your-project.supabase.co
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+### 4. Deploy Frontend to Vercel
+
+```bash
+vercel --prod
+```
+
+Set environment variables in Vercel Dashboard:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `OPENAI_API_KEY`
+
+### 5. Verify Deployment
+
+1. Visit your Vercel frontend URL
+2. Upload a test PDF
+3. Verify processing completes
+4. Test search functionality
 
 ## Security
 
-- Row Level Security (RLS) enabled on all tables
-- Private storage bucket with RLS policies
-- API keys stored in environment variables
-- Service role key only in Edge Functions
+### Current Setup (Hackathon/Demo Mode)
+
+- ✅ Row Level Security (RLS) enabled on all tables
+- ✅ Public read access for documents and chunks (for demo)
+- ✅ Public upload to pdfs storage bucket (for demo)
+- ✅ API keys stored in environment variables
+- ✅ Service role key only used server-side
+
+### For Production Use
+
+**Important:** This hackathon app has public access enabled for ease of demo. For production:
+
+**Important:** This hackathon app has public access enabled for ease of demo. For production:
+
+1. **Enable Authentication:**
+   ```typescript
+   // In src/app/page.tsx, add auth check
+   const { data: { session } } = await supabase.auth.getSession()
+   if (!session) {
+     // Redirect to login
+   }
+   ```
+
+2. **Update RLS Policies:**
+   ```sql
+   -- Remove public policies
+   DROP POLICY "Allow public read on documents" ON documents;
+   DROP POLICY "Allow public read on chunks" ON chunks;
+   DROP POLICY "Allow public uploads to pdfs bucket" ON storage.objects;
+   
+   -- Add auth-based policies
+   CREATE POLICY "Users can access own documents"
+     ON documents FOR ALL
+     USING (auth.uid() = user_id);
+   
+   CREATE POLICY "Users can access own chunks"
+     ON chunks FOR ALL
+     USING (
+       document_id IN (
+         SELECT id FROM documents WHERE user_id = auth.uid()
+       )
+     );
+   ```
+
+3. **Add Rate Limiting:**
+   - Use Vercel Edge Config or Upstash for rate limiting
+   - Implement per-user upload quotas
+
+4. **Secure API Keys:**
+   - Rotate OpenAI keys regularly
+   - Use separate keys for dev/prod
+   - Monitor usage in OpenAI dashboard
+
+5. **Add Input Validation:**
+   - Validate PDF file size on client and server
+   - Scan uploaded files for malware
+   - Limit number of documents per user
+
+## Performance Optimization
+
+- **PDF Parsing**: ~20-30 seconds for typical documents
+- **Search Response**: < 2 seconds with pgvector
+- **Chunk Limit**: Currently capped at 50 chunks per document
+- **Batch Embedding**: 20 chunks per OpenAI API call
+
+### Scaling Considerations
+
+- Increase `MAX_CHUNKS` in Edge Function for larger documents
+- Use `text-embedding-3-small` (cheaper) if budget is tight
+- Consider caching embeddings for repeated queries
+- Add pagination to search results for large result sets
+
+## Technologies
+
+- **Frontend**: Next.js 14, React 18, TypeScript, Tailwind CSS
+- **Backend**: Supabase (PostgreSQL + pgvector + Edge Functions)
+- **AI/ML**: [Docling](https://github.com/DS4SD/docling) (IBM), OpenAI text-embedding-ada-002
+- **Deployment**: Vercel (Frontend + Docling API), Supabase Cloud
+- **Other**: Deno (Edge Functions runtime)
+
+## Project Structure
+
+```
+Supa-Bass/
+├── api/                      # Docling Python API (FastAPI)
+│   ├── parse.py             # PDF parsing endpoint
+│   └── requirements.txt     # Python dependencies
+├── src/
+│   ├── app/
+│   │   ├── page.tsx         # Upload page
+│   │   ├── search/[docId]/  # Search page
+│   │   └── api/search/      # Search API route
+│   └── lib/
+│       └── supabase.ts      # Supabase SSR client
+├── supabase/
+│   ├── functions/
+│   │   └── parse-pdf/       # Edge Function for orchestration
+│   └── migrations/          # Database schema & RLS
+├── __tests__/               # Test files
+├── setup-local.sh           # Automated setup script
+├── smoke-test.sh            # End-to-end test script
+└── README.md               # This file
+```
+
+## Contributing
+
+This is a hackathon project built for the Supabase AI Hackathon. Contributions welcome!
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
 ## License
 
 MIT
 
-## Contributing
+## Acknowledgments
 
-This is a hackathon project. Feel free to fork and customize!
+- [Docling](https://github.com/DS4SD/docling) by IBM Research for PDF parsing
+- [Supabase](https://supabase.com) for the incredible database + edge platform
+- [OpenAI](https://openai.com) for embeddings API
+- [Next.js](https://nextjs.org) team for the amazing framework
+
+## Support
+
+For issues or questions:
+- Open a GitHub issue
+- Check the Troubleshooting section above
+- Review Supabase Edge Function logs
+- Check browser console for frontend errors
+
+---
+
+Built with ❤️ for the Supabase AI Hackathon

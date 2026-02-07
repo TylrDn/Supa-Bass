@@ -9,6 +9,7 @@ export default function Home() {
   const [uploading, setUploading] = useState(false)
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
+  const [showDemo, setShowDemo] = useState(true)
   const router = useRouter()
   const supabase = useMemo(
     () =>
@@ -22,13 +23,24 @@ export default function Home() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0]
-      if (selectedFile.type === 'application/pdf') {
-        setFile(selectedFile)
-        setError('')
-      } else {
+      
+      // Validate file type
+      if (selectedFile.type !== 'application/pdf') {
         setError('Please select a PDF file')
         setFile(null)
+        return
       }
+      
+      // Validate file size (10MB limit)
+      const maxSize = 10 * 1024 * 1024 // 10MB in bytes
+      if (selectedFile.size > maxSize) {
+        setError(`File size must be less than 10MB. Your file is ${(selectedFile.size / 1024 / 1024).toFixed(2)}MB`)
+        setFile(null)
+        return
+      }
+      
+      setFile(selectedFile)
+      setError('')
     }
   }
 
@@ -49,27 +61,40 @@ export default function Home() {
         .from('pdfs')
         .upload(fileName, file)
 
-      if (uploadError) throw uploadError
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        throw new Error(`Upload failed: ${uploadError.message}`)
+      }
 
-      setStatus('Processing PDF with Docling...')
+      setStatus('Processing PDF with Docling AI...')
 
       // Call the parse-pdf edge function
       const { data: functionData, error: functionError } = await supabase.functions.invoke('parse-pdf', {
-        body: { storagePath: uploadData.path }
+        body: { path: uploadData.path, bucket: 'pdfs' }
       })
 
-      if (functionError) throw functionError
+      if (functionError) {
+        console.error('Edge function error:', functionError)
+        throw new Error(`Processing failed: ${functionError.message}`)
+      }
+      
+      setStatus('Generating embeddings...')
 
       setStatus('PDF processed successfully!')
       
       // Redirect to search page
-      if (functionData.documentId) {
+      if (functionData.document_id) {
         setTimeout(() => {
-          router.push(`/search/${functionData.documentId}`)
+          router.push(`/search/${functionData.document_id}`)
         }, 1500)
+      } else {
+        // Fallback: redirect to home if no document_id returned
+        setError('Processing completed but no document ID was returned')
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred during upload')
+      console.error('Upload/processing error:', err)
+      const message = err.message || 'An error occurred during upload/processing'
+      setError(message)
       setStatus('')
     } finally {
       setUploading(false)
@@ -83,9 +108,34 @@ export default function Home() {
           <h1 className="text-5xl font-bold text-center mb-4 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
             PDF Insight Extractor
           </h1>
-          <p className="text-center text-gray-600 dark:text-gray-300 mb-12">
+          <p className="text-center text-gray-600 dark:text-gray-300 mb-8">
             Upload your PDF and unlock AI-powered semantic search
           </p>
+
+          {/* Demo Instructions Banner */}
+          {showDemo && (
+            <div className="mb-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl p-6 text-white relative">
+              <button
+                onClick={() => setShowDemo(false)}
+                className="absolute top-4 right-4 text-white/80 hover:text-white"
+                aria-label="Dismiss"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <h3 className="text-xl font-bold mb-3">🎯 Quick Demo Guide</h3>
+              <ol className="space-y-2 text-sm text-white/90">
+                <li><strong>1. Upload:</strong> Select any PDF (resume, report, article)</li>
+                <li><strong>2. Wait:</strong> Docling AI parses ~20-30 seconds</li>
+                <li><strong>3. Search:</strong> Ask natural questions like "What are the key findings?"</li>
+                <li><strong>4. Explore:</strong> View results with similarity scores and metadata</li>
+              </ol>
+              <p className="mt-3 text-xs text-white/70">
+                💡 Try searching "experience" in a resume or "revenue" in a financial report
+              </p>
+            </div>
+          )}
 
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
             <div className="space-y-6">
