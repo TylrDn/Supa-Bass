@@ -68,8 +68,10 @@ async def parse_pdf(request: ParseRequest):
                 
     except base64.binascii.Error:
         raise HTTPException(status_code=400, detail="Invalid base64 encoding")
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to parse PDF: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to parse PDF: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

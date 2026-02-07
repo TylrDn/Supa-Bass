@@ -1,15 +1,7 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/parse.py",
-      "use": "@vercel/python"
+  "functions": {
+    "api/parse.py": {
+      "runtime": "@vercel/python@3.12"
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "api/parse.py"
-    }
-  ]
+  }
 }

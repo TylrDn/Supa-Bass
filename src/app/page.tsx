@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { useState, useMemo } from 'react'
+import { createClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
 
 export default function Home() {
@@ -10,9 +10,13 @@ export default function Home() {
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
   const router = useRouter()
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const supabase = useMemo(
+    () =>
+      createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder',
+      ),
+    [],
   )
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
