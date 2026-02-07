@@ -11,14 +11,14 @@ export default function Home() {
   const [error, setError] = useState('')
   const [showDemo, setShowDemo] = useState(true)
   const router = useRouter()
-  const supabase = useMemo(
-    () =>
-      createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder',
-      ),
-    [],
-  )
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const supabase = useMemo(() => {
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return null
+    }
+    return createClient(supabaseUrl, supabaseAnonKey)
+  }, [supabaseUrl, supabaseAnonKey])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -47,6 +47,11 @@ export default function Home() {
   const handleUpload = async () => {
     if (!file) {
       setError('Please select a file first')
+      return
+    }
+
+    if (!supabase) {
+      setError('Missing Supabase env vars. Check Vercel/Local environment configuration.')
       return
     }
 
@@ -128,11 +133,11 @@ export default function Home() {
               <ol className="space-y-2 text-sm text-white/90">
                 <li><strong>1. Upload:</strong> Select any PDF (resume, report, article)</li>
                 <li><strong>2. Wait:</strong> Docling AI parses ~20-30 seconds</li>
-                <li><strong>3. Search:</strong> Ask natural questions like "What are the key findings?"</li>
+                <li><strong>3. Search:</strong> Ask natural questions like &quot;What are the key findings?&quot;</li>
                 <li><strong>4. Explore:</strong> View results with similarity scores and metadata</li>
               </ol>
               <p className="mt-3 text-xs text-white/70">
-                💡 Try searching "experience" in a resume or "revenue" in a financial report
+                💡 Try searching &quot;experience&quot; in a resume or &quot;revenue&quot; in a financial report
               </p>
             </div>
           )}
