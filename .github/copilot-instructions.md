@@ -140,7 +140,7 @@ POST to `/functions/v1/parse-pdf`
 
 ### Modifying database schema
 1. Create migration in `supabase/migrations/`
-2. Use timestamped filename format: `YYYYMMDD_description.sql`
+2. Use timestamped filename format: `YYYYMMDDHHMMSS_description.sql`
 3. Test migration locally first
 4. Deploy with `supabase db push`
 
