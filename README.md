@@ -1,5 +1,9 @@
 # PDF Insight Extractor
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/import/project?template=https://github.com/TylrDn/Supa-Bass)
+![Supabase](https://img.shields.io/badge/Supabase-pgvector-3ecf8e?logo=supabase)
+![Next.js](https://img.shields.io/badge/Next.js-14-000000?logo=nextdotjs)
+
 A hackathon-ready MVP that allows users to upload PDFs, parse them with Docling AI, store structured data in Supabase, and perform semantic search using OpenAI embeddings.
 
 ## Features
@@ -25,7 +29,7 @@ A hackathon-ready MVP that allows users to upload PDFs, parse them with Docling 
 
 ### AI Services
 - **Docling API**: Python-based PDF parsing service (Vercel)
-- **OpenAI**: text-embedding-3-small for semantic embeddings
+- **OpenAI**: text-embedding-ada-002 for semantic embeddings (1536 dims)
 
 ## Setup Instructions
 
@@ -172,8 +176,66 @@ POST to `https://<your-api>.vercel.app/api/parse`
 
 - **Frontend**: Next.js 14, React 18, TypeScript, Tailwind CSS
 - **Backend**: Supabase (PostgreSQL + pgvector)
-- **AI/ML**: Docling, OpenAI text-embedding-3-small
+- **AI/ML**: Docling, OpenAI text-embedding-ada-002
 - **Deployment**: Vercel (Frontend + Docling API), Supabase Edge Functions
+
+## 3-Minute Demo Script
+
+1. **Upload** – Open the app, select a PDF (e.g. `demo/finance-q4.pdf`), and click "Upload & Parse".
+2. **Wait** – Watch the status progress: upload → Docling parse → embedding → done (~20 s).
+3. **Search** – You're redirected to the search page. Type a natural-language question (e.g. "What was Q4 revenue?").
+4. **Explore** – Results appear as glassmorphism cards with similarity %, chunk type (text/table), and page number.
+5. **Repeat** – Try another query or upload a second PDF.
+
+### Test Commands
+
+```bash
+# ── curl: test Edge Function locally ──
+curl -X POST http://localhost:54321/functions/v1/parse-pdf \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+  -d '{"bucket":"pdfs","path":"demo/finance-q4.pdf"}'
+
+# ── curl: test /api/search ──
+curl -X POST http://localhost:3000/api/search \
+  -H "Content-Type: application/json" \
+  -d '{"query_text":"revenue","doc_id":"<DOC_UUID>","match_count":5}'
+
+# ── curl: test Docling API ──
+curl -X POST http://localhost:8000/api/parse \
+  -H "Content-Type: application/json" \
+  -d '{"pdf_base64":"<BASE64_PDF>"}'
+```
+
+### Local Development
+
+```bash
+# 1) Supabase local
+supabase start && supabase db reset
+
+# 2) FastAPI for Docling
+python -m venv .venv && source .venv/bin/activate
+pip install -r api/requirements.txt
+uvicorn api.parse:app --reload --port 8000 &
+
+# 3) Edge Functions
+supabase functions serve parse-pdf --no-verify-jwt --env-file .env.local &
+
+# 4) Next.js dev
+npm run dev
+```
+
+### Deploy to Production
+
+```bash
+# Vercel (frontend + Docling API)
+vercel --prod
+
+# Supabase DB push + Edge deploy
+supabase db push
+supabase functions deploy parse-pdf
+supabase secrets set OPENAI_API_KEY=sk-... DOCLING_API_URL=https://...vercel.app
+```
 
 ## Security
 
