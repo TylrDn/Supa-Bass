@@ -5,6 +5,52 @@ import tempfile
 import os
 from PyPDF2 import PdfReader
 
+def _normalize_text(raw: str) -> str:
+    return raw.replace("\u00ad", "").replace("\r", "\n")
+
+def _build_line_frequencies(pages: list[str]) -> dict[str, int]:
+    freqs: dict[str, int] = {}
+    for page_text in pages:
+        seen = set()
+        for line in page_text.split("\n"):
+            clean = " ".join(line.strip().split())
+            if clean:
+                seen.add(clean)
+        for line in seen:
+            freqs[line] = freqs.get(line, 0) + 1
+    return freqs
+
+def _extract_paragraphs(raw: str, line_freq: dict[str, int], page_count: int) -> list[str]:
+    lines = [" ".join(l.strip().split()) for l in raw.split("\n")]
+    filtered: list[str] = []
+    for line in lines:
+        if not line:
+            filtered.append("")
+            continue
+        # Drop frequent short lines (likely headers/footers/page numbers)
+        if line_freq.get(line, 0) >= 2 and len(line) <= 80 and page_count > 1:
+            continue
+        if len(line) <= 2 and line.isdigit():
+            continue
+        filtered.append(line)
+
+    paragraphs: list[str] = []
+    buffer: list[str] = []
+    for line in filtered:
+        if not line:
+            if buffer:
+                paragraphs.append(" ".join(buffer).strip())
+                buffer = []
+            continue
+        if line.endswith("-") and not line.endswith(" -"):
+            buffer.append(line[:-1])
+        else:
+            buffer.append(line)
+    if buffer:
+        paragraphs.append(" ".join(buffer).strip())
+
+    return [p for p in paragraphs if p]
+
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -53,19 +99,25 @@ class handler(BaseHTTPRequestHandler):
             
             try:
                 text_elements = []
-                
+
                 reader = PdfReader(temp_path)
-                for page_num, page in enumerate(reader.pages, start=1):
+                page_texts: list[str] = []
+                for page in reader.pages:
                     text = page.extract_text()
-                    if text:
-                        # Split into paragraphs
-                        paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-                        for para in paragraphs:
-                            text_elements.append({
-                                "text": para,
-                                "page": page_num,
-                                "type": "paragraph"
-                            })
+                    page_texts.append(_normalize_text(text) if text else "")
+
+                line_freq = _build_line_frequencies(page_texts)
+
+                for page_num, page_text in enumerate(page_texts, start=1):
+                    if not page_text:
+                        continue
+                    paragraphs = _extract_paragraphs(page_text, line_freq, len(page_texts))
+                    for para in paragraphs:
+                        text_elements.append({
+                            "text": para,
+                            "page": page_num,
+                            "type": "paragraph"
+                        })
                 
                 doc_dict = {
                     "schema_name": "DoclingDocument",
