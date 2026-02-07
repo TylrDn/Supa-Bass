@@ -32,11 +32,3 @@ CREATE POLICY IF NOT EXISTS "Allow public read on documents"
 
 CREATE POLICY IF NOT EXISTS "Allow public read on chunks"
   ON chunks FOR SELECT USING (true);
-
--- Allow service-role inserts (service-role bypasses RLS, but explicit
--- policies make intent clear for auditing).
-CREATE POLICY IF NOT EXISTS "Service role can insert documents"
-  ON documents FOR INSERT WITH CHECK (true);
-
-CREATE POLICY IF NOT EXISTS "Service role can insert chunks"
-  ON chunks FOR INSERT WITH CHECK (true);
