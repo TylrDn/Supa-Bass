@@ -1,5 +1,3 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import './globals.css'
 import type { Metadata } from 'next'
 

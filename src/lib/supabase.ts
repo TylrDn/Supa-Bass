@@ -1,6 +1,13 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+/**
+ * Creates a Supabase client for use in Server Components and Server Actions.
+ * This utility is designed for server-side rendering and route handlers.
+ * 
+ * Note: Currently, the app uses client-side Supabase clients in page components.
+ * This utility can be used when converting components to Server Components.
+ */
 export function createClient() {
   const cookieStore = cookies()
 
