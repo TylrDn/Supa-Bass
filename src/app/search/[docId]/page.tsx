@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 interface SearchResult {
@@ -22,7 +21,6 @@ export default function SearchPage({ params }: { params: { docId: string } }) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
-  const router = useRouter()
 
   useEffect(() => {
     // Fetch document info
